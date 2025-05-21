@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Status {
+  Pending
+  Completed
+  InProgress
+  Skip
+}
+
+model User {
+  /// CUID string mapped to _id
+  id       String  @id @default(cuid()) @map("_id")
+  email    String  @unique
+  tasks    Task[]
+}
+
+model Task {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  status      Status   @default(Pending)
+  important   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
