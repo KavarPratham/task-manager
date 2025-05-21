@@ -98,7 +98,11 @@ export function TaskList({ tasks, refreshTasks, onEdit }: TaskListProps) {
 
             {/* Right: Actions */}
             <div className="flex flex-col items-end space-y-2 ml-4 flex-none">
+              <label htmlFor={`status-select-${task.id}`} className="sr-only">
+                Select status
+              </label>
               <select
+                id={`status-select-${task.id}`}
                 value={task.status}
                 onChange={(e) =>
                   updateStatus(task.id, e.target.value as Status)

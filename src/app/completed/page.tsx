@@ -46,7 +46,7 @@ export default function CompletedPage() {
         </h1>
         <button
           onClick={() => setIsAddModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded"
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
         >
           + Add Task
         </button>

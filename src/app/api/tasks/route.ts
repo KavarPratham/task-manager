@@ -1,7 +1,7 @@
-// src/app/api/tasks/route.ts
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Status } from '@prisma/client'; // Import status type if needed
 
 export async function GET(req: Request) {
   const { userId } = await auth();
@@ -11,13 +11,16 @@ export async function GET(req: Request) {
   const statusParam = url.searchParams.get('status');
   const importantParam = url.searchParams.get('important');
 
-  // Build Prisma `where` filter
-  const where: any = { userId };
+  const where: {  
+    userId: string;
+    status?: Status;
+    important?: boolean;
+  } = { userId };
+
   if (statusParam) {
-    where.status = statusParam;           // e.g. "Completed"
+    where.status = statusParam as Status; // cast to enum
   }
   if (importantParam !== null) {
-    // only add when explicitly provided
     where.important = importantParam === 'true';
   }
 
@@ -33,7 +36,12 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return new Response('Unauthorized', { status: 401 });
 
-  const { title, description, status, important } = await req.json();
+  const { title, description, status, important }: {
+    title: string;
+    description?: string;
+    status: Status;
+    important: boolean;
+  } = await req.json();
 
   const task = await prisma.task.create({
     data: {
@@ -52,24 +60,34 @@ export async function PATCH(req: Request) {
   const { userId } = await auth();
   if (!userId) return new Response('Unauthorized', { status: 401 });
 
-  const { id, title, description, status, important } = await req.json();
+  const { id, title, description, status, important }: {
+    id: string;
+    title?: string;
+    description?: string;
+    status?: Status;
+    important?: boolean;
+  } = await req.json();
 
-  // Only allow updating provided fields
-  const data: any = {};
-  if (title !== undefined)       data.title       = title;
+  const data: {
+    title?: string;
+    description?: string;
+    status?: Status;
+    important?: boolean;
+  } = {};
+  
+  if (title !== undefined)       data.title = title;
   if (description !== undefined) data.description = description;
-  if (status !== undefined)      data.status      = status;
-  if (important !== undefined)   data.important   = important;
+  if (status !== undefined)      data.status = status;
+  if (important !== undefined)   data.important = important;
 
   const task = await prisma.task.updateMany({
     where: {
       id,
-      userId,         // ensure user can only update their own task
+      userId,
     },
     data,
   });
 
-  // updateMany returns { count: number }
   if (task.count === 0) {
     return new Response('Not Found or Unauthorized', { status: 404 });
   }
@@ -81,7 +99,8 @@ export async function DELETE(req: Request) {
   const { userId } = await auth();
   if (!userId) return new Response('Unauthorized', { status: 401 });
 
-  const { id } = await req.json();
+  const { id }: { id: string } = await req.json();
+
   await prisma.task.deleteMany({
     where: { id, userId },
   });

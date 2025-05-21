@@ -44,7 +44,7 @@ const Sidebar = () => {
       <div>
         <div
           className="flex items-center justify-between p-2 gap-4 hover:bg-gray-800 hover:border-gray-400 rounded-2xl transition-all cursor-pointer mb-8"
-          onClick={openUserProfile}
+          onClick={()=>openUserProfile()}
         >
           {/* Left: Avatar + Name */}
           <div className="flex items-center gap-4">
