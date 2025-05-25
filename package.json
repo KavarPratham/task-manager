@@ -13,6 +13,7 @@
     "@clerk/nextjs": "^6.19.4",
     "@clerk/themes": "^2.2.45",
     "@prisma/client": "^6.8.2",
+    "framer-motion": "^12.12.2",
     "next": "15.3.2",
     "prisma": "^6.8.2",
     "react": "^19.0.0",

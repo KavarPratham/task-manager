@@ -1,71 +1,67 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { TaskForm } from '@/components/Taskform';
 import { TaskList } from '@/components/TaskList';
 import { EditTaskForm } from '@/components/EditTaskForm';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { EmptyState } from '@/components/EmptyState';
-import { Task } from '@prisma/client';
 import { Status } from '@prisma/client';
+import { useTasks } from '@/context/TaskProvider';
 
 export default function DashboardPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isAddModal, setIsAddModal] = useState(false);
-  const [editTask, setEditTask] = useState<Task | null>(null);
-
-  // Super filter state
   const [statusFilter, setStatusFilter] = useState<'All' | Status>('All');
   const [importantOnly, setImportantOnly] = useState(false);
 
-  // Fetch tasks with filters
-  const fetchTasks = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Build query string
-      const params: string[] = [];
-      if (statusFilter !== 'All') params.push(`status=${statusFilter}`);
-      if (importantOnly) params.push(`important=true`);
-      const query = params.length ? `?${params.join('&')}` : '';
-      const res = await fetch(`/api/tasks${query}`, {
-        credentials: 'include',
-      });
-      const data: Task[] = await res.json();
-      setTasks(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, importantOnly]);
+  const {
+    tasks: rawTasks,
+    loading,
+    updateTask,
+    deleteTask,
+  } = useTasks();
 
-  // Re-fetch whenever filters change
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+  const tasks = useMemo(() => {
+    return rawTasks
+      .filter(t => statusFilter === 'All' || t.status === statusFilter)
+      .filter(t => !importantOnly || t.important);
+  }, [rawTasks, statusFilter, importantOnly]);
+
+  const [isAddModal, setAddModal] = useState(false);
+  const [editTask, setEditTask] = useState<null | typeof rawTasks[0]>(null);
 
   return (
-    <main className="flex flex-col h-screen max-w-2xl mx-auto p-6">
-      {/* Header + Add Button */}
-      <div className="flex justify-between items-center mb-4 flex-none">
+    <main className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="flex justify-between items-center mb-4 flex-none"
+      >
         <h1 className="text-3xl font-bold">
           Your Tasks
           <span className="ml-2 text-2xl font-normal text-gray-500 dark:text-gray-400">
             ({tasks.length})
-          </span>  
+          </span>
         </h1>
-        <button
-          onClick={() => setIsAddModal(true)}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setAddModal(true)}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
         >
           + Add Task
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
-      {/* Super Filter Bar */}
-      <div className="flex items-center gap-4 mb-4 flex-none">
-        {/* Status filter */}
+      {/* Filters */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="flex items-center gap-4 mb-4 flex-none"
+      >
         <label className="flex items-center gap-2 text-sm">
           <span>Status:</span>
           <select
@@ -75,81 +71,105 @@ export default function DashboardPage() {
           >
             <option value="All">All</option>
             {Object.values(Status).map(s => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>
+                {s}
+              </option>
             ))}
           </select>
         </label>
-
-        {/* Important toggle */}
         <label className="flex items-center gap-1 text-sm">
           <input
             type="checkbox"
             checked={importantOnly}
-            onChange={() => setImportantOnly(prev => !prev)}
+            onChange={() => setImportantOnly(v => !v)}
             className="w-4 h-4"
           />
           Important only
         </label>
-      </div>
+      </motion.div>
 
-      {/* Scrollable task list area */}
+      {/* Tasks Area */}
       <div className="flex-1 overflow-auto">
         {loading ? (
           <LoadingOverlay />
-        ) : tasks.length ? (
+        ) : tasks.length > 0 ? (
           <TaskList
             tasks={tasks}
-            refreshTasks={fetchTasks}
+            onStatusChange={(id, status) => updateTask(id, { status })}
+            onImportantToggle={(id, current) => updateTask(id, { important: !current })}
+            onDelete={deleteTask}
             onEdit={setEditTask}
           />
         ) : (
-          <EmptyState message="No tasks match your filters." />
+          <EmptyState
+            message={
+              statusFilter !== 'All' || importantOnly
+                ? 'No tasks match your filters.'
+                : 'Your tasks will appear here.'
+            }
+          />
         )}
       </div>
 
-      {/* Add Task Modal */}
-      {isAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black opacity-50" />
-          <div className="relative bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg max-w-md w-full">
-            <button
-              className="absolute top-2 right-2"
-              onClick={() => setIsAddModal(false)}
+      {/* Add Modal */}
+      <AnimatePresence>
+        {isAddModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg max-w-md w-full"
             >
-              ✕
-            </button>
-            <TaskForm
-              afterSubmit={() => {
-                setIsAddModal(false);
-                fetchTasks();
-              }}
-            />
-          </div>
-        </div>
-      )}
+              <button
+                className="absolute top-3 right-3 text-xl"
+                onClick={() => setAddModal(false)}
+              >
+                ✕
+              </button>
+              <TaskForm afterSubmit={() => setAddModal(false)} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Edit Task Modal */}
-      {editTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black opacity-50" />
-          <div className="relative bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg max-w-md w-full">
-            <button
-              className="absolute top-2 right-2"
-              onClick={() => setEditTask(null)}
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {editTask && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg max-w-md w-full"
             >
-              ✕
-            </button>
-            <EditTaskForm
-              task={editTask}
-              onClose={() => setEditTask(null)}
-              onSaved={() => {
-                setEditTask(null);
-                fetchTasks();
-              }}
-            />
-          </div>
-        </div>
-      )}
+              <button
+                className="absolute top-3 right-3 text-xl"
+                onClick={() => setEditTask(null)}
+              >
+                ✕
+              </button>
+              <EditTaskForm
+                task={editTask}
+                onClose={() => setEditTask(null)}
+                onSaved={() => setEditTask(null)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
