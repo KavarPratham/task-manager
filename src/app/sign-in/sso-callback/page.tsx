@@ -1,24 +1,30 @@
-// app/sign-in/sso-callback/page.tsx
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Clerk } from '@clerk/clerk-js';
 
 export default function SSORedirectCallback() {
   const router = useRouter();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const error = params.get('error');
-    const reason = params.get('reason');
+    const handleSSORedirect = async () => {
+      const clerk = new Clerk(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!);
 
-    // If SSO failed, redirect to custom sign-in
-    if (error || reason) {
-      router.replace('/sign-in?error=user_not_found');
-    } else {
-      // Optional: Successful login fallback
-      router.replace('/dashboard');
-    }
+      await clerk.load();
+
+      try {
+        await clerk.handleRedirectCallback();
+        // ✅ Redirect to dashboard on success
+        router.replace('/dashboard');
+      } catch (err) {
+        console.error('SSO redirect failed:', err);
+        // ❌ Redirect to sign-in on failure
+        router.replace('/sign-in');
+      }
+    };
+
+    handleSSORedirect();
   }, [router]);
 
   return null;
